@@ -3,6 +3,11 @@
 
 module Ch11 where
 
+-- newtype can have only a single unary constructor
+-- newtype has no runtime overhead; it reuses the representation of the type it contains
+-- the difference between newtype and its type is gone after compilation
+-- with newtype, we can define different typeclasses, as the original type
+
 data Price = Price Integer deriving (Eq, Show)
 data Size = Size Integer deriving (Eq, Show)
 
@@ -41,14 +46,15 @@ getManu :: Vehicle -> Manufacturer
 getManu (Car manu _) = manu
 getManu _ = Mini
 
+newtype Goats = Goats Int deriving (Eq, Show)
+newtype Cows  = Cows Int  deriving (Eq, Show)
+
 class TooMany a where
   tooMany :: a -> Bool
 
 instance TooMany Int where
   tooMany n = n > 42
 
-newtype Goats =
-  Goats Int deriving (Eq, Show, Num, TooMany)
 
 newtype Cats =
   Cats Int deriving (Eq, Show, Num)
@@ -64,3 +70,9 @@ instance TooMany (Int, String) where
 
 instance (Num a, TooMany a) => TooMany (a, a) where
   tooMany (x, y) = tooMany (x + y)
+--
+-- tooManyGoats :: Int -> Bool
+-- tooManyGoats n = n > 5
+
+tooManyGoats :: Goats -> Bool
+tooManyGoats (Goats n) = n > 5
