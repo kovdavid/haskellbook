@@ -1,0 +1,37 @@
+
+Gen $ Identity String
+
+Identity <$> Gen String
+
+λ> :t (<*>)
+(<*>) :: Applicative f => f (a -> b) -> f a -> f b
+
+
+data Two a b = Two a b deriving (Eq, Show)
+
+instance (Semigroup a, Semigroup b) => Semigroup (Two a b) where
+  (Two x y) <> (Two x' y') = Two (x <> x') (y <> y')
+
+instance (Arbitrary a, Arbitrary b) => Arbitrary (Two a b) where
+  arbitrary = Two <$> arbitrary <*> arbitrary
+
+
+arbitrary :: Gen a
+Two <$> Arbitrary :: Gen $ Two a ==== Gen (b -> Two a b)
+
+Two a :: b -> Two a b
+
+Two "hello" :: (b -> Two String b)
+
+Gen (b -> Two a b)
+f   (a -> b)
+
+
+arbitrary :: Gen b
+Gen b
+f a
+
+Gen (Two "hello") <*> Gen 5
+f   (a -> Two String Int)          (f a)       -> (f b)
+
+Gen $ Two String b
