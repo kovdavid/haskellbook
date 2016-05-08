@@ -1,7 +1,17 @@
 module SemigroupEx where
 
 import Test.QuickCheck
+import Data.Monoid hiding ((<>))
 import Data.Semigroup as S
+
+semigroupAssoc :: (Eq m, Semigroup m) => m -> m -> m -> Bool
+semigroupAssoc a b c = (a <> (b <> c)) == ((a <> b) <> c)
+
+monoidLeftIdentity :: (Eq m, Monoid m, Semigroup m) => m -> Bool
+monoidLeftIdentity a = (mempty <> a) == a
+
+monoidRightIdentity :: (Eq m, Monoid m, Semigroup m) => m -> Bool
+monoidRightIdentity a = (a <> mempty) == a
 
 -- Trivial
 
@@ -10,11 +20,12 @@ data Trivial = Trivial deriving (Eq, Show)
 instance Semigroup Trivial where
   _ <> _ = Trivial
 
+instance Monoid Trivial where
+  mempty = Trivial
+  mappend = (<>)
+
 instance Arbitrary Trivial where
   arbitrary = return Trivial
-
-semigroupAssoc :: (Eq m, Semigroup m) => m -> m -> m -> Bool
-semigroupAssoc a b c = (a <> (b <> c)) == ((a <> b) <> c)
 
 type TrivialAssoc = Trivial -> Trivial -> Trivial -> Bool
 
@@ -24,6 +35,10 @@ newtype Identity a = Identity a deriving (Eq, Show)
 
 instance Semigroup a => Semigroup (Identity a) where
   (Identity x) <> (Identity x') = Identity $ x <> x'
+
+instance (Semigroup a, Monoid a) => Monoid (Identity a) where
+  mempty = Identity $ mempty
+  mappend = (<>)
 
 instance Arbitrary a => Arbitrary (Identity a) where
   arbitrary = Identity <$> arbitrary
@@ -36,6 +51,10 @@ data Two a b = Two a b deriving (Eq, Show)
 
 instance (Semigroup a, Semigroup b) => Semigroup (Two a b) where
   (Two x y) <> (Two x' y') = Two (x <> x') (y <> y')
+
+instance (Semigroup a, Monoid a, Semigroup b, Monoid b) => Monoid (Two a b) where
+  mempty = Two mempty mempty
+  mappend = (<>)
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Two a b) where
   arbitrary = Two <$> arbitrary <*> arbitrary
@@ -77,6 +96,10 @@ instance Semigroup BoolConj where
 instance Arbitrary BoolConj where
   arbitrary = BoolConj <$> arbitrary
 
+instance Monoid BoolConj where
+  mappend = (<>)
+  mempty = BoolConj True
+
 type BoolConjAssoc = BoolConj -> BoolConj -> BoolConj -> Bool
 
 -- BoolDisj
@@ -87,6 +110,10 @@ instance Semigroup BoolDisj where
   (BoolDisj False) <> _ = BoolDisj False
   _ <> (BoolDisj False) = BoolDisj False
   _ <> _ = BoolDisj True
+
+instance Monoid BoolDisj where
+  mappend = (<>)
+  mempty = BoolDisj True
 
 instance Arbitrary BoolDisj where
   arbitrary = BoolDisj <$> arbitrary
@@ -115,6 +142,13 @@ newtype Combine a b = Combine { unCombine :: (a -> b)}
 instance (Semigroup b) => Semigroup (Combine a b) where
   (Combine f) <> (Combine f') = Combine $ (\x -> (f x) <> (f' x))
 
+instance (Semigroup b, Monoid b) => Monoid (Combine a b) where
+  mappend = (<>)
+  mempty = Combine $ \_ -> mempty
+
+instance (CoArbitrary a, Arbitrary b) => Arbitrary (Combine a b) where
+  arbitrary = Combine <$> arbitrary
+
 -- instance (Arbitrary a, Arbitrary b) => Arbitrary (Combine a b) where
   -- arbitrary = do
     -- arb1 <- arbitrary :: Arbitrary a => Gen a
@@ -127,6 +161,10 @@ newtype Comp a = Comp { unComp :: (a -> a) }
 
 instance Semigroup a => Semigroup (Comp a) where
   _ <> _ = Comp id
+
+instance (Semigroup a, Monoid a) => Monoid (Comp a) where
+  mempty = Comp $ id
+  mappend = (<>)
 
 -- Validation
 
@@ -180,18 +218,66 @@ type AccumulateBothAssoc a b = AccumulateBoth a b
                             -> AccumulateBoth a b
                             -> Bool
 
+-- ######################## --
+-- ####### MonoidEx ####### --
+-- ######################## --
+
+newtype Mem s a = Mem { runMem :: s -> (a,s) }
+
+instance (Monoid a) => Monoid (Mem s a) where
+  mempty = Mem $ \x -> (mempty, x)
+
+  (Mem g) `mappend` (Mem g') =
+    Mem $ (\s ->
+      let (a1, s1) = g s
+          (a2, s2) = g' s1
+       in (a1 `mappend` a2, s2)
+    )
+
+f' :: Num s => Mem s String
+f' = Mem $ \s -> ("hi", s + 1)
+
+zero :: Int
+zero = 0
+
+memRun :: IO ()
+memRun = do
+  print $ runMem (f' `mappend` mempty) zero
+  print $ runMem (mempty `mappend` f') zero
+  print $ (runMem mempty 0 :: (String, Int))
+  print $ runMem (f' `mappend` mempty) zero == runMem f' zero
+  print $ runMem (mempty `mappend` f') zero == runMem f' zero
 
 main :: IO ()
 main = do
   putStrLn "Starting engines.."
+
   quickCheck (semigroupAssoc :: TrivialAssoc)
+  quickCheck (monoidLeftIdentity :: Trivial -> Bool)
+  quickCheck (monoidRightIdentity :: Trivial -> Bool)
+
   quickCheck (semigroupAssoc :: IdentityAssoc String)
+  quickCheck (monoidLeftIdentity :: Identity String -> Bool)
+  quickCheck (monoidRightIdentity :: Identity String -> Bool)
+
   quickCheck (semigroupAssoc :: TwoAssoc String String)
+  quickCheck (monoidLeftIdentity :: Two String String -> Bool)
+  quickCheck (monoidRightIdentity :: Two String String -> Bool)
+
   quickCheck (semigroupAssoc :: ThreeAssoc String String String)
   quickCheck (semigroupAssoc :: FourAssoc String String String String)
+
   quickCheck (semigroupAssoc :: BoolConjAssoc)
+  quickCheck (monoidLeftIdentity :: BoolConj -> Bool)
+  quickCheck (monoidRightIdentity :: BoolConj -> Bool)
+
   quickCheck (semigroupAssoc :: BoolDisjAssoc)
+  quickCheck (monoidLeftIdentity :: BoolDisj -> Bool)
+  quickCheck (monoidRightIdentity :: BoolDisj -> Bool)
+
   quickCheck (semigroupAssoc :: OrAssoc String Int)
   quickCheck (semigroupAssoc :: ValidationAssoc String String)
   quickCheck (semigroupAssoc :: AccumulateRightAssoc String String)
   quickCheck (semigroupAssoc :: AccumulateBothAssoc String String)
+
+  putStrLn "Liftoff.."
