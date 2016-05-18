@@ -60,3 +60,23 @@ instance Functor (Constant a) where
 instance Monoid a => Applicative (Constant a) where
   pure _ = Constant mempty
   (<*>) (Constant v) (Constant w) = Constant $ v <> w
+
+data Cow = Cow {
+    name   :: String
+  , age    :: Int
+  , weight :: Int
+  } deriving (Eq, Show)
+
+noEmpty :: String -> Maybe String
+noEmpty "" = Nothing
+noEmpty str = Just str
+
+noNegative :: Int -> Maybe Int
+noNegative n | n >= 0 = Just n
+             | otherwise = Nothing
+
+cowFromString :: String -> Int -> Int -> Maybe Cow
+cowFromString name' age' weight' =
+  Cow <$> noEmpty name'
+      <*> noNegative age'
+      <*> noNegative weight'
