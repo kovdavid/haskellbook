@@ -23,6 +23,3 @@ instance Monoid Bull where
   mappend _ _ = Fools
 
 instance EqProp Bull where (=-=) = eq
-
-main :: IO ()
-main = quickBatch (monoid Twoo)
