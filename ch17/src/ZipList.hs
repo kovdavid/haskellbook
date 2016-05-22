@@ -95,3 +95,10 @@ zip' (Cons f fs) (Cons x xs) = Cons (f x) (zip' fs xs)
 
 functions = ZipList' $ Cons (+1) (Cons (+2) (Cons (+3) Nil))
 values = ZipList' $ Cons 1 (Cons 2 (Cons 3 Nil))
+
+instance Eq a => EqProp (ZipList' a) where
+  xs =-= ys = xs' `eq` ys'
+    where xs' = let (ZipList' l) = xs
+                in  take' 3000 l
+          ys' = let (ZipList' l) = ys
+                in  take' 3000 l
