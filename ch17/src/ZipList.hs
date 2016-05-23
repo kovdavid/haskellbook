@@ -4,7 +4,7 @@ import Control.Applicative
 import Data.Monoid
 import Test.QuickCheck
 import Test.QuickCheck.Checkers
--- import Test.QuickCheck.Classes
+import Test.QuickCheck.Classes
 
 instance Monoid a => Monoid (ZipList a) where
   mempty = ZipList []
@@ -24,6 +24,9 @@ data List a =
     Nil
   | Cons a (List a)
   deriving (Eq, Show)
+
+instance Arbitrary a => Arbitrary (List a) where
+  arbitrary = pure <$> arbitrary
 
 instance Functor List where
   fmap _ Nil = Nil
@@ -75,6 +78,9 @@ flatMap f as = concat' $ fmap f as
 newtype ZipList' a = ZipList' (List a)
                      deriving (Eq, Show)
 
+instance Arbitrary a => Arbitrary (ZipList' a) where
+  arbitrary = pure <$> arbitrary
+
 instance Functor ZipList' where
   fmap f (ZipList' xs) = ZipList' $ fmap f xs
 
@@ -102,3 +108,6 @@ instance Eq a => EqProp (ZipList' a) where
                 in  take' 3000 l
           ys' = let (ZipList' l) = ys
                 in  take' 3000 l
+
+main :: IO ()
+main = quickBatch $ applicative $ (undefined :: ZipList' (String, String, Int))

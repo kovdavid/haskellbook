@@ -20,6 +20,14 @@ instance Arbitrary Bull where
 
 instance Monoid Bull where
   mempty = Fools
-  mappend _ _ = Fools
+  mappend x Fools = x
+  mappend Fools x = x
+  mappend _ _ = Twoo
 
-instance EqProp Bull where (=-=) = eq
+instance EqProp Bull where
+  (=-=) = eq
+
+main :: IO ()
+main = do
+  quickBatch (monoid Twoo)
+  quickBatch (applicative [("b", "w", 1 :: Int)])
