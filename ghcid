@@ -1,1 +1,1 @@
-ghcid --command="stack ghci"
+ghcid --command="stack ghci" --test "Module.main"
