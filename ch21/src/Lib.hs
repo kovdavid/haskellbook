@@ -1,8 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Lib where
 
 import Test.QuickCheck
 import Test.QuickCheck.Classes
 import Test.QuickCheck.Checkers
+import Data.Foldable
+import Data.Monoid
 
 newtype Identity a = Identity a deriving (Eq, Ord, Show)
 
@@ -113,7 +116,7 @@ instance Functor (Three' a) where
   fmap f (Three' x y z) = Three' x (f y) (f z)
 
 instance Foldable (Three' a) where
-  foldMap f (Three' _ y z) = f z `mappend` f y
+  foldMap f (Three' _ y z) = f y `mappend` f z
 
 instance Traversable (Three' a) where
   traverse f (Three' x y z) = Three' x <$> f y <*> f z
@@ -124,11 +127,32 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (Three' a b) where
 instance (Eq a, Eq b) => EqProp (Three' a b) where
   (=-=) = eq
 
+--------------------------------------------------------
+
+data S n a = S (n a) a deriving (Eq, Ord, Show)
+
+instance Functor n => Functor (S n) where
+  fmap f (S x y) = S (f <$> x) (f y)
+
+instance (Functor n, Foldable n) => Foldable (S n) where
+  foldMap f (S x y) = fold (f <$> x) `mappend` (f y)
+
+instance Traversable n => Traversable (S n) where
+  traverse f (S x y) = S <$> traverse f x <*> f y
+
+instance (Arbitrary a, Arbitrary (n a)) => Arbitrary (S n a) where
+  arbitrary = S <$> arbitrary <*> arbitrary
+
+instance (Eq a, Eq (n a)) => EqProp (S n a) where
+  (=-=) = eq
+
 main :: IO ()
 main = do
-  -- quickBatch (traversable $ (undefined :: Identity (Int, Int, [Int])))
-  -- quickBatch (traversable $ (undefined :: Constant Int (Int, Int, [Int])))
-  -- quickBatch (traversable $ (undefined :: Optional (Int, Int, [Int])))
-  -- quickBatch (traversable $ (undefined :: List (Int, Int, [Int])))
-  -- quickBatch (traversable $ (undefined :: Three Char String (Int, Int, [Int])))
+  quickBatch (traversable $ (undefined :: Identity (Int, Int, [Int])))
+  quickBatch (traversable $ (undefined :: Constant Int (Int, Int, [Int])))
+  quickBatch (traversable $ (undefined :: Optional (Int, Int, [Int])))
+  quickBatch (traversable $ (undefined :: List (Int, Int, [Int])))
+  quickBatch (traversable $ (undefined :: Three Char String (Int, Int, [Int])))
   quickBatch (traversable $ (undefined :: Three' Int (Int, Int, [Int])))
+  quickBatch (traversable $ (undefined :: S Maybe ([Int], [Int], [Int])))
+  return ()
