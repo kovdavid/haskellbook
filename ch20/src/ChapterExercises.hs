@@ -49,6 +49,12 @@ filterF f xs = foldMap go xs
           | f x == True = pure x
           | otherwise = mempty
 
+b :: Maybe a -> a
+b x = undefined
+
+c :: Either String Int
+c = Right "hello"
+
 main :: IO ()
 main = do
   putStrLn "====== Constant a b"
