@@ -20,3 +20,4 @@ instance Traversable Tree where
   traverse f Empty = pure Empty
   traverse f (Leaf x) = Leaf <$> f x
   traverse f (Node t1 x t2) = Node <$> (traverse f t1) <*> (f x) <*> (traverse f t2)
+
