@@ -1,0 +1,7 @@
+stack install haddocset
+stack exec haddocset -- create -t /opt/zeal/Haddock.docset
+stack build foo --haddock
+stack build --only-dependencies --haddock
+stack haddock --haddock-deps
+stack exec haddocset -- -t /opt/zeal/Haddock.docset add -s "$(stack path --snapshot-pkg-db)"/*.conf
+stack exec haddocset -- -t /opt/zeal/Haddock.docset add -s "$(stack path --local-pkg-db)"/*.conf
