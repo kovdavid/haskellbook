@@ -6,10 +6,10 @@ import Control.Monad (replicateM)
 import Control.Monad.Trans.State
 import System.Random
 
--- mkStdGen
--- next
--- random
--- randomR
+-- mkStdGen :: Int -> StdGen
+-- next :: g -> (Int, g)
+-- random :: (RandomGen g, Random a) => g -> (a, g)
+-- randomR :: (RandomGen g, Random a) => (a, a) -> g -> (a, g)
 
 type Iso a b = (a -> b, b -> a)
 
@@ -114,16 +114,25 @@ instance Monad (Moi s) where
   return = pure
 
   (>>=) :: Moi s a -> (a -> Moi s b) -> Moi s b
-  f >>= g = Moi $ \s ->
-    let (a, s') = runMoi f s
-        (b, s'') = runMoi (g a) s'
-     in (b, s'')
+  mf >>= g = Moi $ \s ->
+    let (x, s') = runMoi mf s
+     in runMoi (g x) s'
 
 fizzBuzz :: Integer -> String
 fizzBuzz n | n `mod` 15 == 0 = "FizzBuzz"
            | n `mod` 5  == 0 = "Fizz"
            | n `mod` 3  == 0 = "Buzz"
            | otherwise       = show n
+
+fizzBuzzList :: [Integer] -> [String]
+fizzBuzzList list =
+  execState (mapM_ addResult list) []
+
+addResult :: Integer -> State [String] ()
+addResult n = do
+  xs <- get
+  let result = fizzBuzz n
+  put (result : xs)
 
 main :: IO ()
 main = do
