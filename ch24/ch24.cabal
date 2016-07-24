@@ -18,3 +18,11 @@ executable ch24
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
                      , trifecta
+                     , transformers
+                     , parsers
+                     , raw-strings-qq
+                     , bytestring
+                     , containers
+                     , text
+                     , bytestring
+                     , hspec
