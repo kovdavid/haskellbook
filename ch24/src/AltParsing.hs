@@ -12,6 +12,8 @@ eitherOr :: String
 eitherOr = [r|
 123
 abc
+123abc
+as43
 456
 def
 |]

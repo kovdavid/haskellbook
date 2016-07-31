@@ -34,6 +34,11 @@ testParse' :: Parser String -> IO ()
 testParse' p =
   print $ parseString p mempty "123"
 
+p' :: Parser [Integer]
+p' = some $ do
+  i <- token digit
+  return (read [i])
+
 main :: IO ()
 main = do
   putStrLn "hello world"

@@ -26,3 +26,6 @@ executable ch24
                      , text
                      , bytestring
                      , hspec
+                     , attoparsec
+                     , parsec
+                     , aeson
