@@ -1,2 +1,4 @@
 ghcid --command="stack ghci" --test "Module.main"
  ghcid src/ChapterExercises.hs --test "main"
+
+stack exec -- ghcid src/Test.hs --test main
