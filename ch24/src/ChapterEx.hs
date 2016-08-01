@@ -4,6 +4,7 @@ import Control.Applicative
 import Text.Trifecta
 import Text.Parser.LookAhead
 import Data.Functor
+import Data.Monoid
 
 data NumberOrString =
     NOSS String
@@ -17,6 +18,10 @@ type Release = [NumberOrString]
 type Metadata = [NumberOrString]
 
 data SemVer = SemVer Major Minor Patch Release Metadata deriving (Eq, Show)
+
+instance Ord SemVer where
+  compare (SemVer major1 minor1 patch1 _ _) (SemVer major2 minor2 patch2 _ _) =
+      (compare major1 major2) <> (compare minor1 minor2) <> (compare patch1 patch2)
 
 -- 1.2.3-4.5.6+7.8.9 => Major 1 $ Minor 2 $ Patch 3 $ Release [4, 5, 6] $ Metadata [7, 8, 9]
 
