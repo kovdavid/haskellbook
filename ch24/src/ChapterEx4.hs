@@ -19,9 +19,14 @@ parsePhone :: Parser PhoneNumber
 parsePhone = do
   optional (string "1-")
   optional (char '(')
-  area <- integer
+  area <- count 3 digit
   optional (char ')')
-  return $ PhoneNumber (fromIntegral area) 0 0
+  optional (oneOf " -")
+  exchange <- count 3 digit
+  optional (oneOf " -")
+  line <- count 4 digit
+
+  return $ PhoneNumber (read area) (read exchange) (read line)
 
 main :: IO ()
 main = do
