@@ -4,6 +4,7 @@
 module ChapterEx5 where
 
 import Control.Applicative
+import Control.Monad
 import Text.Trifecta
 import Text.Parser.LookAhead
 import Text.RawString.QQ
@@ -46,18 +47,17 @@ endLineOrFile = (void $ char '\n') <|> eof
 
 skipComment :: Parser ()
 skipComment = do
-  (optional ((string "--") >> (many $ noneOf "\n") <* endLineOrFile))
+  (try (optional whiteSpace >> (string "--") >> (many $ noneOf "\n") <* endLineOrFile))
   return ()
 
 skipEmpty :: Parser ()
 skipEmpty = do
-    try $ (void $ whiteSpace) <* endLineOrFile
-  <|>
+    try $ void whiteSpace >> endLineOrFile
     return ()
 
 parseDate :: Parser String
 parseDate = do
-  char '#' >> whiteSpace >> (many $ choice [digit, char '-']) <* skipComment
+  char '#' >> whiteSpace >> (many $ choice [digit, char '-']) <* skipComment <* skipEmpty
 
 parseTime :: Parser String
 parseTime = do
@@ -70,8 +70,12 @@ parseTodo :: Parser String
 parseTodo = do
   start <- parseTime
   whiteSpace
-  todo <- whiteSpace >> (manyTill letter (void (string "--") <|> endLineOrFile))
-  return $ start ++ " DAVS"
+  todo <-
+    (manyTill (noneOf "\n") (void (lookAhead $ string "--") <|> endLineOrFile))
+    -- <* try skipComment <|> try skipEmpty
+  try $ many $ choice [skipComment, skipEmpty]
+  end <- lookAhead parseTime
+  return $ start ++ " DAVS " ++ end
 
 main :: IO ()
 main = do
@@ -80,4 +84,5 @@ main = do
   print $ parseString parseDate mempty "#  2025-02-07 -- date"
   print $ parseString parseTime mempty "08:00 Something -- hello \n09:00"
   print $ parseString parseTodo mempty "08:00 Something -- hello \n09:00"
+  print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n09:00"
   print $ "I got this!"
