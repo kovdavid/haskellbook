@@ -6,13 +6,16 @@ module ChapterEx5 where
 import Control.Applicative
 import Control.Monad
 import Text.Trifecta
+import Text.Trifecta.Delta
 import Text.Parser.LookAhead
 import Text.RawString.QQ
 import Data.Functor
 import Data.Monoid
 import Debug.Trace
 
-log = [r|
+data Time = Time Int Int deriving (Eq, Show)
+
+log' = [r|
 -- comment
 
 # 2025-02-05
@@ -43,46 +46,46 @@ log = [r|
 |]
 
 endLineOrFile :: Parser ()
-endLineOrFile = (void $ char '\n') <|> eof
+endLineOrFile = (void $ newline) <|> eof
+
+skipSpaces :: Parser ()
+skipSpaces = void $ many $ (char ' ' <|> tab)
 
 skipComment :: Parser ()
 skipComment = do
-  (try (optional whiteSpace >> (string "--") >> (many $ noneOf "\n") <* endLineOrFile))
+  try $ skipSpaces >> string "--" >> skipSpaces >> manyTill anyChar endLineOrFile
   return ()
 
 skipEmpty :: Parser ()
-skipEmpty = do
-    try $ void whiteSpace >> endLineOrFile
-    return ()
+skipEmpty = skipSpaces >> endLineOrFile >> return ()
 
 parseDate :: Parser String
-parseDate = do
-  char '#' >> whiteSpace >> (many $ choice [digit, char '-']) <* skipComment <* skipEmpty
+parseDate = char '#' >> skipSpaces >> (many $ choice [digit, char '-'])
 
-parseTime :: Parser String
+parseTime :: Parser Time
 parseTime = do
-  hour <- count 2 digit
+  hour <- natural
   char ':'
-  min <- count 2 digit
-  return $ hour ++ ":" ++ min
+  min <- natural
+  return $ Time (fromIntegral hour) (fromIntegral min)
 
 parseTodo :: Parser String
 parseTodo = do
   start <- parseTime
-  whiteSpace
-  todo <-
-    (manyTill (noneOf "\n") (void (lookAhead $ string "--") <|> endLineOrFile))
-    -- <* try skipComment <|> try skipEmpty
-  try $ many $ choice [skipComment, skipEmpty]
-  end <- lookAhead parseTime
-  return $ start ++ " DAVS " ++ end
+  skipSpaces
+  todo <- (manyTill anyChar (skipComment <|> endLineOrFile))
+  many $ skipComment <|> skipEmpty <|> eof
+  end <- (lookAhead parseTime) <|> (return $ Time 23 59)
+  many $ skipComment <|> skipEmpty <|> eof
+  return $ (show start) ++ " *" ++ todo ++ "* " ++ (show end)
 
 main :: IO ()
 main = do
   print $ parseString skipComment mempty "-- hello\nsad"
-  print $ parseString skipEmpty mempty "   \n"
+  print $ parseString skipEmpty mempty "   \ns"
   print $ parseString parseDate mempty "#  2025-02-07 -- date"
   print $ parseString parseTime mempty "08:00 Something -- hello \n09:00"
   print $ parseString parseTodo mempty "08:00 Something -- hello \n09:00"
   print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n09:00"
-  print $ "I got this!"
+  print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n#asd"
+  print $ parseString (many parseTodo) mempty "08:00 Something hello\n\n\n09:00 SomethingElse\n10:00 asd"
