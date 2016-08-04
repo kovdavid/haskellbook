@@ -14,6 +14,7 @@ import Data.Monoid
 import Debug.Trace
 
 data Time = Time Int Int deriving (Eq, Show)
+data Date = Date Int Int Int deriving (Eq, Show)
 
 log' = [r|
 -- comment
@@ -45,47 +46,60 @@ log' = [r|
 22:00 Sleep
 |]
 
-endLineOrFile :: Parser ()
-endLineOrFile = (void $ newline)
-
-skipSpaces :: Parser ()
-skipSpaces = void $ many $ (char ' ' <|> tab)
-
-skipComment :: Parser ()
-skipComment = do
-  try $ skipSpaces >> string "--" >> skipSpaces >> manyTill anyChar endLineOrFile
-  return ()
-
-skipEmpty :: Parser ()
-skipEmpty = skipSpaces >> endLineOrFile >> return ()
-
-parseDate :: Parser String
-parseDate = char '#' >> skipSpaces >> (many $ choice [digit, char '-'])
+parseDate :: Parser Date
+parseDate = do
+  char '#'
+  many skipSpace
+  year <- natural >>= return . fromIntegral
+  char '-'
+  month <- natural >>= return . fromIntegral
+  char '-'
+  day <- natural >>= return . fromIntegral
+  return $ Date year month day
 
 parseTime :: Parser Time
 parseTime = do
-  hour <- natural
+  hour <- natural >>= return . fromIntegral
   char ':'
-  min <- natural
-  return $ Time (fromIntegral hour) (fromIntegral min)
+  min <- natural >>= return . fromIntegral
+  return $ Time hour min
 
 parseTodo :: Parser String
 parseTodo = do
   start <- parseTime
-  skipSpaces
-  todo <- (manyTill anyChar (skipComment <|> endLineOrFile <|> eof))
-  many $ skipComment <|> skipEmpty
+  many skipSpace
+  todo <- manyTill anyChar $ (try $ lookAhead $ string "--") <|> (newline >> return "")
+  many $ skipComment <|> void newline <|> skipSpace
   end <- (lookAhead parseTime) <|> (return $ Time 23 59)
-  many $ skipComment <|> skipEmpty
+  many $ skipComment <|> void newline <|> skipSpace
   return $ (show start) ++ " *" ++ todo ++ "* " ++ (show end)
+
+skipComment :: Parser ()
+skipComment = do
+  optional $ string "--" >> manyTill anyChar (void newline <|> eof)
+  return ()
+
+endLineOrFile :: Parser ()
+endLineOrFile = (void $ newline) <|> eof
+
+skipSpace :: Parser ()
+skipSpace = void $ (char ' ') <|> tab
+
+skipEmpty :: Parser ()
+skipEmpty = void $ many $ (void newline) <|> skipSpace
 
 main :: IO ()
 main = do
-  print $ parseString skipComment mempty "-- hello\nsad"
-  print $ parseString skipEmpty mempty "   \ns"
+  print $ parseString (many skipSpace) mempty ""
+  print $ parseString (many skipSpace) mempty "   "
+  print $ parseString (many $ skipSpace) mempty "    \n    \n \n\n  "
+  print $ parseString (skipEmpty) mempty "    \n    \n \n\n  "
+  print $ parseString skipComment mempty ""
+  print $ parseString skipComment mempty "-- hello"
+  print $ parseString skipComment mempty "-- hellod"
   print $ parseString parseDate mempty "#  2025-02-07 -- date"
   print $ parseString parseTime mempty "08:00 Something -- hello \n09:00"
   print $ parseString parseTodo mempty "08:00 Something -- hello \n09:00"
-  print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n09:00"
-  print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n#asd"
-  print $ parseString (many parseTodo) mempty "08:00 Something hello\n\n\n09:00 SomethingElse\n10:00 asda"
+  -- print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n09:00"
+  -- print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n#asd"
+  -- print $ parseString (many parseTodo) mempty "08:00 Something hello\n\n\n09:00 SomethingElse\n10:00 asd"
