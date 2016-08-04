@@ -46,7 +46,7 @@ log' = [r|
 |]
 
 endLineOrFile :: Parser ()
-endLineOrFile = (void $ newline) <|> eof
+endLineOrFile = (void $ newline)
 
 skipSpaces :: Parser ()
 skipSpaces = void $ many $ (char ' ' <|> tab)
@@ -73,10 +73,10 @@ parseTodo :: Parser String
 parseTodo = do
   start <- parseTime
   skipSpaces
-  todo <- (manyTill anyChar (skipComment <|> endLineOrFile))
-  many $ skipComment <|> skipEmpty <|> eof
+  todo <- (manyTill anyChar (skipComment <|> endLineOrFile <|> eof))
+  many $ skipComment <|> skipEmpty
   end <- (lookAhead parseTime) <|> (return $ Time 23 59)
-  many $ skipComment <|> skipEmpty <|> eof
+  many $ skipComment <|> skipEmpty
   return $ (show start) ++ " *" ++ todo ++ "* " ++ (show end)
 
 main :: IO ()
@@ -88,4 +88,4 @@ main = do
   print $ parseString parseTodo mempty "08:00 Something -- hello \n09:00"
   print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n09:00"
   print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n#asd"
-  print $ parseString (many parseTodo) mempty "08:00 Something hello\n\n\n09:00 SomethingElse\n10:00 asd"
+  print $ parseString (many parseTodo) mempty "08:00 Something hello\n\n\n09:00 SomethingElse\n10:00 asda"
