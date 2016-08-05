@@ -9,8 +9,6 @@ import Text.Trifecta
 import Text.Trifecta.Delta
 import Text.Parser.LookAhead
 import Text.RawString.QQ
-import Data.Functor
-import Data.Monoid
 import Debug.Trace
 
 data Time = Time Int Int deriving (Eq, Show)
@@ -64,42 +62,54 @@ parseTime = do
   min <- natural >>= return . fromIntegral
   return $ Time hour min
 
+--  08:00 Something -- hello \n09:00"
+
 parseTodo :: Parser String
 parseTodo = do
   start <- parseTime
   many skipSpace
   todo <- manyTill anyChar $ (try $ lookAhead $ string "--") <|> (newline >> return "")
-  many $ skipComment <|> void newline <|> skipSpace
+  skipComment
   end <- (lookAhead parseTime) <|> (return $ Time 23 59)
-  many $ skipComment <|> void newline <|> skipSpace
+
+  traceShowM end
+  restOfLine >>= traceShowM . ("5 " ++) . show
+
   return $ (show start) ++ " *" ++ todo ++ "* " ++ (show end)
 
 skipComment :: Parser ()
-skipComment = do
-  optional $ string "--" >> manyTill anyChar (void newline <|> eof)
-  return ()
-
-endLineOrFile :: Parser ()
-endLineOrFile = (void $ newline) <|> eof
+skipComment = skipOptional (string "--" >> manyTill anyChar (void newline <|> eof))
 
 skipSpace :: Parser ()
 skipSpace = void $ (char ' ') <|> tab
 
 skipEmpty :: Parser ()
-skipEmpty = void $ many $ (void newline) <|> skipSpace
+skipEmpty = void newline <|> skipSpace
 
 main :: IO ()
 main = do
-  print $ parseString (many skipSpace) mempty ""
-  print $ parseString (many skipSpace) mempty "   "
-  print $ parseString (many $ skipSpace) mempty "    \n    \n \n\n  "
-  print $ parseString (skipEmpty) mempty "    \n    \n \n\n  "
-  print $ parseString skipComment mempty ""
-  print $ parseString skipComment mempty "-- hello"
-  print $ parseString skipComment mempty "-- hellod"
-  print $ parseString parseDate mempty "#  2025-02-07 -- date"
-  print $ parseString parseTime mempty "08:00 Something -- hello \n09:00"
-  print $ parseString parseTodo mempty "08:00 Something -- hello \n09:00"
+  -- print $ parseString (many skipSpace >> careting >>= traceShowM) mempty " \n \n "
+  -- print $ parseString (skipSpace >> careting >>= traceShowM) mempty " \n \n "
+  -- print $ parseString (many skipSpace >> careting >>= traceShowM) mempty "   "
+  -- print $ parseString (skipSpace >> careting >>= traceShowM) mempty "    "
+  -- print $ parseString (skipEmpty >> careting >>= traceShowM) mempty "    "
+  -- print $ parseString (skipEmpty >> careting >>= traceShowM) mempty " \n  \n   "
+  -- print $ parseString (many skipEmpty >> careting >>= traceShowM) mempty " \n  \n   "
+  -- print $ parseString (skipComment >> careting >>= traceShowM) mempty ""
+  -- print $ parseString (skipComment >> careting >>= traceShowM) mempty "   "
+  -- print $ parseString (skipComment >> careting >>= traceShowM) mempty "-- hello"
+  -- print $ parseString (skipComment >> careting >>= traceShowM) mempty "-- hello\nHello"
+  print $
+    parseString
+    (skipComment <|> (many skipEmpty >> return ()) >> careting >>= traceShowM)
+    mempty
+    "-- hello\n \n    \n ---hdavs"
+  -- print $ parseString ((many $ skipComment <|> skipEmpty) <* (restOfLine >>= traceShowM) ) mempty "-- hello \n \n --asd"
+  -- print $ parseString skipComment mempty "-- hellod"
+  -- print $ parseString parseDate mempty "#  2025-02-07 -- date"
+  -- print $ parseString parseTime mempty "08:00 Something -- hello \n09:00"
+  -- print $ parseString parseTodo mempty "08:00 Something -- hello \n09:00"
+  -- print $ parseString parseTodo mempty "08:00 Something -- hello \n\n--hello sco\n  \n09:00"
   -- print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n09:00"
   -- print $ parseString parseTodo mempty "08:00 Something -- hello \n\n\n#asd"
   -- print $ parseString (many parseTodo) mempty "08:00 Something hello\n\n\n09:00 SomethingElse\n10:00 asd"
