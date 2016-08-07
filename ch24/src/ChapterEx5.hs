@@ -22,6 +22,10 @@ newtype LogText = LogText String deriving (Eq, Show)
 
 data LogEntry = LogEntry LogText StartTime EndTime deriving (Eq, Show)
 
+type DateEntry = (Date, [LogEntry])
+
+data Log = Log [(Date, [LogEntry])] deriving (Eq, Show)
+
 log' :: String
 log' = [r|
 -- comment
@@ -75,14 +79,27 @@ parseTime = do
 
 parseLogEntry :: Parser LogEntry
 parseLogEntry = do
-  let spaces = many skipSpace
+  let spaces' = many skipSpace
       commentStart = lookAhead $ void $ string "--"
-      todoTill = (try $ spaces >> commentStart) <|> void newline <|> eof
+      todoTill = (try $ spaces' >> commentStart) <|> void newline <|> eof
   start <- parseTime
-  text <- manyTill anyChar todoTill
+  logText <- manyTill anyChar todoTill
   many skipComment
   end <- (lookAhead parseTime) <|> (return $ Time 23 59)
-  return $ LogEntry (LogText text) (StartTime start) (EndTime end)
+  return $ LogEntry (LogText logText) (StartTime start) (EndTime end)
+
+parseDateEntry :: Parser DateEntry
+parseDateEntry = do
+  many $ skipComment <|> skipEmpty
+  date <- parseDate
+  many $ skipComment <|> skipEmpty
+  logEntries <- many parseLogEntry :: Parser [LogEntry]
+  return (date, logEntries)
+
+parseLog :: Parser Log
+parseLog = do
+  l <- many parseDateEntry
+  return $ Log l
 
 skipComment :: Parser ()
 skipComment = do
@@ -187,6 +204,43 @@ main = hspec $ do
           midnight = EndTime (Time 23 59)
           res1 = MyResult $ parseString p mempty "08:00 Test"
           res2 = MyResult $ parseString p mempty "08:00 Test\n09:00 Davs"
-      res1 `shouldBe` (MyResult $ Success $ [LogEntry (LogText "Test") startTime8 midnight])
+      res1 `shouldBe` (MyResult $ Success $ [ LogEntry (LogText "Test") startTime8 midnight ])
       res2 `shouldBe` (MyResult $ Success $ [ LogEntry (LogText "Test") startTime8 endTime
                                             , LogEntry (LogText "Davs") startTime9 midnight ])
+    it "parseDateEntry" $ do
+      let p = parseDateEntry
+          str = "\n--Test\n# 2010-02-02 --Hello\n08:00 Test --asd\n09:00 Test2\n10:00 Test3"
+          res = MyResult $ parseString p mempty str
+          date = Date 2010 02 02
+          log1 = LogEntry (LogText "Test") (StartTime $ Time 8 0) (EndTime $ Time 9 0)
+          log2 = LogEntry (LogText "Test2") (StartTime $ Time 9 0) (EndTime $ Time 10 0)
+          log3 = LogEntry (LogText "Test3") (StartTime $ Time 10 0) (EndTime $ Time 23 59)
+      res `shouldBe` (MyResult $ Success $ (date, [log1, log2, log3]))
+
+    it "parseLog" $ do
+      let res = MyResult $ parseString parseLog mempty log'
+      res `shouldBe` MyResult (
+        Success (
+            Log [ (Date 2025 2 5,
+                    [ LogEntry (LogText "Breakfast") (StartTime (Time 8 0)) (EndTime (Time 9 0))
+                    , LogEntry (LogText "Sanitizing moisture collector") (StartTime (Time 9 0)) (EndTime (Time 11 0))
+                    , LogEntry (LogText "Exercising in high-grav gym") (StartTime (Time 11 0)) (EndTime (Time 12 0))
+                    , LogEntry (LogText "Lunch") (StartTime (Time 12 0)) (EndTime (Time 13 0))
+                    , LogEntry (LogText "Programming") (StartTime (Time 13 0)) (EndTime (Time 17 0))
+                    , LogEntry (LogText "Commuting home in rover") (StartTime (Time 17 0)) (EndTime (Time 17 30))
+                    , LogEntry (LogText "R&R") (StartTime (Time 17 30)) (EndTime (Time 19 0))
+                    , LogEntry (LogText "Dinner") (StartTime (Time 19 0)) (EndTime (Time 21 0))
+                    , LogEntry (LogText "Shower") (StartTime (Time 21 0)) (EndTime (Time 21 15))
+                    , LogEntry (LogText "Read") (StartTime (Time 21 15)) (EndTime (Time 22 0))
+                    , LogEntry (LogText "Sleep") (StartTime (Time 22 0)) (EndTime (Time 23 59)) ])
+                , (Date 2025 2 7,
+                    [ LogEntry (LogText "Breakfast") (StartTime (Time 8 0)) (EndTime (Time 9 0))
+                    , LogEntry (LogText "Bumped head, passed out") (StartTime (Time 9 0)) (EndTime (Time 13 36))
+                    , LogEntry (LogText "Wake up, headache") (StartTime (Time 13 36)) (EndTime (Time 13 37))
+                    , LogEntry (LogText "Go to medbay") (StartTime (Time 13 37)) (EndTime (Time 13 40))
+                    , LogEntry (LogText "Patch self up") (StartTime (Time 13 40)) (EndTime (Time 13 45))
+                    , LogEntry (LogText "Commute home for rest") (StartTime (Time 13 45)) (EndTime (Time 14 15))
+                    , LogEntry (LogText "Read") (StartTime (Time 14 15)) (EndTime (Time 21 0))
+                    , LogEntry (LogText "Dinner") (StartTime (Time 21 0)) (EndTime (Time 21 15))
+                    , LogEntry (LogText "Read") (StartTime (Time 21 15)) (EndTime (Time 22 0))
+                    , LogEntry (LogText "Sleep") (StartTime (Time 22 0)) (EndTime (Time 23 59)) ]) ]))
