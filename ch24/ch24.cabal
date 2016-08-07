@@ -29,3 +29,4 @@ executable ch24
                      , attoparsec
                      , parsec
                      , aeson
+                     , mtl
