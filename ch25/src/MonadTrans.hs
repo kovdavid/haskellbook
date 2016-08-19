@@ -141,19 +141,23 @@ newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
 
 instance Functor m => Functor (StateT s m) where
     fmap :: (a -> b) -> StateT s m a -> StateT s m b
-    fmap f (StateT sma) = 
+    fmap f (StateT sma) =
         let fmapf = \(a',s') -> (f a', s')
         in StateT $ \s -> fmap fmapf (sma s)
 
-instance Applicative m => Applicative (StateT s m) where
+instance Monad m => Applicative (StateT s m) where
   pure x = StateT $ \s -> pure (x, s)
 
   (<*>) :: forall a b. StateT s m (a -> b) -> StateT s m a -> StateT s m b
-  (StateT smab) <*> (StateT sma) = StateT $ \s ->
-    let _ = undefined
-        _ = smab :: s -> m ((a -> b), s)
-        _ = sma :: s -> m (a, s)
-        _ = s :: s
+  (StateT smab) <*> (StateT sma) = StateT $ \s -> do
+    (f, s') <- smab s
+    (x, s'') <- sma s'
+    return (f x, s'')
 
-    in undefined
-    -- (smab s) <*> (sma s)
+instance Monad m => Monad (StateT s m) where
+  return = pure
+
+  (>>=) :: forall a b. StateT s m a -> (a -> StateT s m b) -> StateT s m b
+  sma >>= f = StateT $ \s -> do
+    (v, s') <- runStateT sma s
+    runStateT (f v) s'
