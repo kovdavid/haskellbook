@@ -136,3 +136,24 @@ instance Monad m => Monad (ReaderT r m) where
 
   -- (->) r a -> (a -> (->) r b) -> (->) r b
   -- (r -> a) -> (a -> r -> b) -> (r -> b)
+
+newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
+
+instance Functor m => Functor (StateT s m) where
+    fmap :: (a -> b) -> StateT s m a -> StateT s m b
+    fmap f (StateT sma) = 
+        let fmapf = \(a',s') -> (f a', s')
+        in StateT $ \s -> fmap fmapf (sma s)
+
+instance Applicative m => Applicative (StateT s m) where
+  pure x = StateT $ \s -> pure (x, s)
+
+  (<*>) :: forall a b. StateT s m (a -> b) -> StateT s m a -> StateT s m b
+  (StateT smab) <*> (StateT sma) = StateT $ \s ->
+    let _ = undefined
+        _ = smab :: s -> m ((a -> b), s)
+        _ = sma :: s -> m (a, s)
+        _ = s :: s
+
+    in undefined
+    -- (smab s) <*> (sma s)
