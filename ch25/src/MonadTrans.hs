@@ -1,5 +1,11 @@
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module MonadTrans where
+
+import Control.Applicative
+
+main :: IO ()
+main = return ()
 
 newtype Identity a = Identity { runIdentity :: a } deriving (Eq, Show)
 newtype IdentityT f a = IdentityT { runIdentityT :: f a } deriving (Eq, Show)
@@ -33,5 +39,100 @@ instance Monad m => Monad (IdentityT m) where
   (IdentityT ma) >>= f = IdentityT $ ma >>= runIdentityT . f
   --   1          2  3      8        4   5       7         6
 
-main :: IO ()
-main = return ()
+newtype MaybeT m a = MaybeT { runMaybeT :: m (Maybe a) }
+
+instance Functor m => Functor (MaybeT m) where
+  fmap f (MaybeT ma) = MaybeT $ (fmap . fmap) f ma
+
+hole = undefined
+data Hole = Hole
+
+instance Applicative m => Applicative (MaybeT m) where
+  pure x = MaybeT $ pure $ pure x
+
+  -- (<*>) :: m (a -> b) -> m a -> m b
+  (<*>) :: forall a b. MaybeT m (a -> b) -> MaybeT m a -> MaybeT m b
+  (MaybeT mf) <*> (MaybeT ma) = MaybeT $ liftA2 (<*>) mf ma
+
+instance Monad m => Monad (MaybeT m) where
+  return = pure
+
+  -- (>>=) :: m a -> (a -> m b) -> m b
+  (>>=) :: forall a b. MaybeT m a -> (a -> MaybeT m b) -> MaybeT m b
+  x >>= f = MaybeT $ do
+    ma <- runMaybeT x
+    case ma of
+      Nothing -> return Nothing
+      Just y -> runMaybeT (f y)
+
+newtype EitherT e m a = EitherT { runEitherT :: m (Either e a) }
+
+instance Functor m => Functor (EitherT e m) where
+  fmap f (EitherT meea) = EitherT $ (fmap . fmap) f meea
+
+instance Applicative m => Applicative (EitherT e m) where
+  pure = EitherT . pure . pure
+
+  (EitherT emab) <*> (EitherT ema) = EitherT $ liftA2 (<*>) emab ema
+
+instance Monad m => Monad (EitherT e m) where
+    return = pure
+
+    x >>= f =
+        EitherT $
+        do e <- runEitherT x
+           case e of
+               Left v -> return $ Left v
+               Right v -> runEitherT (f v)
+
+swapEither :: Either e a -> Either a e
+swapEither (Left x)= Right x
+swapEither (Right x)= Left x
+
+swapEitherT :: (Functor m) => EitherT e m a -> EitherT a m e
+swapEitherT (EitherT ema) = EitherT $ fmap swapEither ema
+
+either :: (a -> c) -> (b -> c) -> Either a b -> c
+either f _ (Left x)= f x
+either _ g (Right x)= g x
+
+-- newtype EitherT e m a = EitherT { runEitherT :: m (Either e a) }
+
+eitherT :: Monad m => (a -> m c) -> (b -> m c) -> EitherT a m b -> m c
+eitherT f g (EitherT amb) = do
+    ab <- amb
+    case ab of
+        Left v -> f v
+        Right v -> g v
+
+newtype ReaderT r m a = ReaderT { runReaderT :: r -> m a }
+
+instance Functor m => Functor (ReaderT r m) where
+  fmap :: (a -> b) -> (ReaderT r m a) -> (ReaderT r m b)
+  fmap f (ReaderT rma) = ReaderT $ (\r -> fmap f (rma r))
+  -- fmap f (ReaderT rma) = ReaderT $ (fmap . fmap) f rma
+
+instance Applicative m => Applicative (ReaderT r m) where
+  pure x = ReaderT (\_ -> pure x)
+
+  (<*>) :: forall a b. ReaderT r m (a -> b) -> ReaderT r m a -> ReaderT r m b
+  -- (RoaderT rmab) <*> (ReaderT rma) = ReaderT $ (\r -> (rmab r) <*> (rma r))
+  (ReaderT rmab) <*> (ReaderT rma) = ReaderT $ (<*>) <$> rmab <*> rma
+
+
+instance Monad m => Monad (ReaderT r m) where
+  return = pure
+
+  -- (>>=) :: m a -> (a -> m b) -> m b
+  (>>=) :: forall a b. ReaderT r m a -> (a -> ReaderT r m b) -> ReaderT r m b
+  -- (ReaderT rma) >>= arrmb = ReaderT (\r -> (rma r) >>= ($r) . runReaderT . arrmb)
+  (ReaderT rma) >>= f =
+      ReaderT $ \r -> do
+          v <- rma r
+          runReaderT (f v) r
+
+  -- m = (->) r
+  -- m a -> (a -> m b) -> m b
+
+  -- (->) r a -> (a -> (->) r b) -> (->) r b
+  -- (r -> a) -> (a -> r -> b) -> (r -> b)
