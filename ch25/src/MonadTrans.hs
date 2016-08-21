@@ -161,3 +161,8 @@ instance Monad m => Monad (StateT s m) where
   sma >>= f = StateT $ \s -> do
     (v, s') <- runStateT sma s
     runStateT (f v) s'
+
+-- type Parser a = String -> Maybe (a, String)
+-- newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
+--
+-- type Parser = StateT String Maybe
