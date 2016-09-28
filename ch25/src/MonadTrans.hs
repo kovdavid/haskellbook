@@ -3,6 +3,9 @@
 module MonadTrans where
 
 import Control.Applicative
+import Control.Monad
+import Control.Monad.Trans.Class
+import Control.Monad.IO.Class
 
 main :: IO ()
 main = return ()
@@ -39,6 +42,9 @@ instance Monad m => Monad (IdentityT m) where
   (IdentityT ma) >>= f = IdentityT $ ma >>= runIdentityT . f
   --   1          2  3      8        4   5       7         6
 
+instance MonadTrans IdentityT where
+  lift = IdentityT
+
 newtype MaybeT m a = MaybeT { runMaybeT :: m (Maybe a) }
 
 instance Functor m => Functor (MaybeT m) where
@@ -65,6 +71,11 @@ instance Monad m => Monad (MaybeT m) where
       Nothing -> return Nothing
       Just y -> runMaybeT (f y)
 
+-- newtype MaybeT m a = MaybeT { runMaybeT :: m (Maybe a) }
+
+instance MonadTrans MaybeT where
+  lift = MaybeT . liftM Just
+
 newtype EitherT e m a = EitherT { runEitherT :: m (Either e a) }
 
 instance Functor m => Functor (EitherT e m) where
@@ -84,6 +95,10 @@ instance Monad m => Monad (EitherT e m) where
            case e of
                Left v -> return $ Left v
                Right v -> runEitherT (f v)
+
+instance MonadTrans (EitherT e) where
+  lift :: Monad m => m a -> EitherT e m a
+  lift = EitherT . liftM Right
 
 swapEither :: Either e a -> Either a e
 swapEither (Left x)= Right x
@@ -131,11 +146,9 @@ instance Monad m => Monad (ReaderT r m) where
           v <- rma r
           runReaderT (f v) r
 
-  -- m = (->) r
-  -- m a -> (a -> m b) -> m b
-
-  -- (->) r a -> (a -> (->) r b) -> (->) r b
-  -- (r -> a) -> (a -> r -> b) -> (r -> b)
+instance MonadTrans (ReaderT r) where
+  lift :: Monad m => m a -> ReaderT r m a
+  lift = ReaderT . const
 
 newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
 
@@ -162,7 +175,24 @@ instance Monad m => Monad (StateT s m) where
     (v, s') <- runStateT sma s
     runStateT (f v) s'
 
+-- newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
+instance MonadTrans (StateT s) where
+  lift :: forall m a. Monad m => m a -> StateT s m a
+  lift ma = StateT (\s -> liftM (flip (,) s) ma)
+
 -- type Parser a = String -> Maybe (a, String)
 -- newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
 --
 -- type Parser = StateT String Maybe
+--
+
+instance (MonadIO m) => MonadIO (MaybeT m) where
+  liftIO :: forall a. IO a -> MaybeT m a
+  -- liftIO = lift . liftIO
+  liftIO ioa = MaybeT $ Just <$> liftIO ioa
+
+instance (MonadIO m) => MonadIO (ReaderT r m) where
+  liftIO ioa = ReaderT $ \_ -> liftIO ioa
+
+instance (MonadIO m) => MonadIO (StateT s m) where
+  liftIO ioa = StateT $ \s -> fmap (flip (,) s) (liftIO ioa)
