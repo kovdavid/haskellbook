@@ -109,6 +109,5 @@ instance Monad m => Monad (StateT s m) where
     (a, s') <- sma s
     runStateT (f a) s'
 
-
 main :: IO ()
 main = return ()
