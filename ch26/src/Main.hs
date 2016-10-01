@@ -4,8 +4,25 @@ module Main where
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Trans.Class
+import Control.Monad.IO.Class
 
 data Hole = Hole
+
+newtype IdentityT m a = IdentityT { runIdentityT :: m a }
+
+instance Functor m => Functor (IdentityT m) where
+  fmap f (IdentityT ma) = IdentityT $ fmap f ma
+
+instance Applicative m => Applicative (IdentityT m) where
+  pure x = IdentityT $ pure x
+
+  (IdentityT mab) <*> (IdentityT ma) = IdentityT $ mab <*> ma
+
+instance Monad m => Monad (IdentityT m) where
+  return = pure
+
+  (IdentityT ma) >>= f = IdentityT $ ma >>= runIdentityT . f
 
 newtype MaybeT m a = MaybeT { runMaybeT :: m (Maybe a) }
 
@@ -108,6 +125,34 @@ instance Monad m => Monad (StateT s m) where
   (StateT sma) >>= f = StateT $ \s -> do
     (a, s') <- sma s
     runStateT (f a) s'
+
+instance MonadTrans (EitherT e) where
+  lift = EitherT . liftM Right
+
+instance MonadTrans MaybeT where
+  lift = MaybeT . liftM Just
+
+instance MonadTrans (StateT s) where
+  lift :: forall m a. Monad m => m a -> StateT s m a
+  lift ma = StateT $ \s -> liftM (flip (,) s) ma
+
+instance MonadTrans (ReaderT r) where
+  lift = ReaderT . const
+
+instance MonadIO m => MonadIO (IdentityT m) where
+  liftIO = IdentityT . liftIO
+
+instance MonadIO m => MonadIO (EitherT e m) where
+  liftIO = lift . liftIO
+
+instance MonadIO m => MonadIO (MaybeT m) where
+  liftIO = lift . liftIO
+
+instance MonadIO m => MonadIO (ReaderT r m) where
+  liftIO = lift . liftIO
+
+instance MonadIO m => MonadIO (StateT s m) where
+  liftIO = lift . liftIO
 
 main :: IO ()
 main = return ()
