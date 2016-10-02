@@ -20,3 +20,5 @@ executable ch26
                      , transformers
                      , mtl
                      , scotty
+                     , text
+                     , containers
