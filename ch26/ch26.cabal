@@ -22,3 +22,5 @@ executable ch26
                      , scotty
                      , text
                      , containers
+                     , random
+                     , errors
