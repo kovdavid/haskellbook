@@ -4,15 +4,13 @@
 module Morra where
 
 import Control.Monad
-import Control.Error
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.Except
-import Control.Monad.Trans
 import Control.Monad.IO.Class
-import Control.Applicative
-import Text.Read
-import System.Random
+import Control.Monad.Trans
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.Maybe
 import System.Exit
+import System.Random
+import Text.Read
 
 data Choice = Odds | Evens | Exit deriving (Eq, Ord, Show)
 
@@ -56,12 +54,20 @@ getComputerChoice Evens = Odds
 main :: IO ()
 main = do
   let gameState = GameState (Score 0 0) (mkStdGen 0)
-  forever $ do
-    playerChoice <- askPlayerChoice
-    when (playerChoice == Exit) $ exitSuccess
-    let computerChoice = getComputerChoice playerChoice
-    playerNumber <- askPlayerNumber
-    return ()
-    -- computerNumber <- getComputerNumber
-  return ()
+  mainLoop
+  putStrLn "Bye"
 
+
+mainLoop :: IO ()
+mainLoop = do
+    playerChoice <- askPlayerChoice
+
+    when (playerChoice /= Exit) $ do
+        let computerChoice = getComputerChoice playerChoice
+        playerNumber <- askPlayerNumber
+        -- computerNumber <- getComputerNumber
+        print $ "PlayerChoice: " ++ show playerChoice
+        print $ "PlayerNumber: " ++ show playerNumber
+        print $ "ComputerChoice: " ++ show computerChoice
+
+        mainLoop

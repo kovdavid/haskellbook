@@ -24,3 +24,4 @@ executable ch26
                      , containers
                      , random
                      , errors
+                     , monad-loops
