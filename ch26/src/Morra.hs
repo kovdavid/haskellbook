@@ -9,12 +9,12 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
-import System.Exit
 import System.Random
 import qualified Text.Read as TR
+import qualified Data.Map as M
 
 data Choice = Odds | Evens | Exit deriving (Eq, Ord, Show)
-data Player = Player1 | Player2 | CPU deriving (Eq, Show)
+data Player = Player | CPU deriving (Eq, Show)
 
 data Score = Score
   { playerScore :: Integer
@@ -24,6 +24,8 @@ data Score = Score
 data GameState = GameState
   { gameScore :: Score
   , gameSeed :: StdGen
+  , player3grams :: M.Map (Integer, Integer) Integer
+  , lastPlayerNumbers :: (Maybe Integer, Maybe Integer)
   } deriving Show
 
 validateChoice :: Monad m => String -> m (Maybe Choice)
@@ -63,6 +65,15 @@ main = do
   print $ show $ finalGameState
   putStrLn "Bye"
 
+getWinner :: Integer -> Choice -> Player
+getWinner sum player1Choice = go (odd sum) player1Choice
+  where go True Odds = Player
+        go False Evens = Player
+        go _ _ = CPU
+
+updateGameScore :: Score -> Player -> Score
+updateGameScore (Score p c) Player = Score (p+1) c
+updateGameScore (Score p c) CPU = Score p (c+1)
 
 mainLoop :: StateT GameState IO ()
 mainLoop = do
@@ -74,14 +85,15 @@ mainLoop = do
         playerNumber <- lift $ askPlayerNumber
         let (computerNumber, newGameSeed) = randomR (0, playerNumber+1) $ gameSeed gameState
 
+        let winner = getWinner (playerNumber + computerNumber) playerChoice
+        let newGameScore = updateGameScore (gameScore gameState) winner
+
+        put $ GameState newGameScore newGameSeed
+
         liftIO $ print $ "PlayerChoice: " ++ show playerChoice
         liftIO $ print $ "PlayerNumber: " ++ show playerNumber
         liftIO $ print $ "ComputerChoice: " ++ show computerChoice
         liftIO $ print $ "ComputerNumber: " ++ show computerNumber
-
-        let currentGameScore = gameScore gameState
-        let newGameScore = Score ((playerScore currentGameScore) + 1) (computerScore currentGameScore)
-
-        put $ GameState newGameScore newGameSeed
+        liftIO $ print $ "Winner: " ++ show winner
 
         mainLoop
