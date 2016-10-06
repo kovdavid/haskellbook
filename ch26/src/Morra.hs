@@ -14,6 +14,7 @@ import System.Random
 import qualified Text.Read as TR
 
 data Choice = Odds | Evens | Exit deriving (Eq, Ord, Show)
+data Player = Player1 | Player2 | CPU deriving (Eq, Show)
 
 data Score = Score
   { playerScore :: Integer
@@ -45,7 +46,10 @@ askPlayerNumber = do
   input <- getLine
   let mInt = TR.readMaybe input
   case mInt of
-    Just int -> return int
+    Just num ->
+      if num >= 0
+      then return num
+      else putStr "Input must be positive. " >> askPlayerNumber
     Nothing -> putStr "Wrong input. " >> askPlayerNumber
 
 getComputerChoice :: Choice -> Choice
@@ -68,12 +72,12 @@ mainLoop = do
     when (playerChoice /= Exit) $ do
         let computerChoice = getComputerChoice playerChoice
         playerNumber <- lift $ askPlayerNumber
-        -- computerNumber <- getComputerNumber
+        let (computerNumber, newGameSeed) = randomR (0, playerNumber+1) $ gameSeed gameState
+
         liftIO $ print $ "PlayerChoice: " ++ show playerChoice
         liftIO $ print $ "PlayerNumber: " ++ show playerNumber
         liftIO $ print $ "ComputerChoice: " ++ show computerChoice
-
-        let (_, newGameSeed) = next $ gameSeed gameState
+        liftIO $ print $ "ComputerNumber: " ++ show computerNumber
 
         let currentGameScore = gameScore gameState
         let newGameScore = Score ((playerScore currentGameScore) + 1) (computerScore currentGameScore)
