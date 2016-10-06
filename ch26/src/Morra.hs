@@ -8,9 +8,10 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.State
 import System.Exit
 import System.Random
-import Text.Read
+import qualified Text.Read as TR
 
 data Choice = Odds | Evens | Exit deriving (Eq, Ord, Show)
 
@@ -42,7 +43,7 @@ askPlayerNumber :: IO Integer
 askPlayerNumber = do
   putStr "Your number: "
   input <- getLine
-  let mInt = readMaybe input
+  let mInt = TR.readMaybe input
   case mInt of
     Just int -> return int
     Nothing -> putStr "Wrong input. " >> askPlayerNumber
@@ -54,20 +55,29 @@ getComputerChoice Evens = Odds
 main :: IO ()
 main = do
   let gameState = GameState (Score 0 0) (mkStdGen 0)
-  mainLoop
+  (_, finalGameState) <- runStateT mainLoop gameState
+  print $ show $ finalGameState
   putStrLn "Bye"
 
 
-mainLoop :: IO ()
+mainLoop :: StateT GameState IO ()
 mainLoop = do
-    playerChoice <- askPlayerChoice
+    gameState <- get
+    playerChoice <- lift $ askPlayerChoice
 
     when (playerChoice /= Exit) $ do
         let computerChoice = getComputerChoice playerChoice
-        playerNumber <- askPlayerNumber
+        playerNumber <- lift $ askPlayerNumber
         -- computerNumber <- getComputerNumber
-        print $ "PlayerChoice: " ++ show playerChoice
-        print $ "PlayerNumber: " ++ show playerNumber
-        print $ "ComputerChoice: " ++ show computerChoice
+        liftIO $ print $ "PlayerChoice: " ++ show playerChoice
+        liftIO $ print $ "PlayerNumber: " ++ show playerNumber
+        liftIO $ print $ "ComputerChoice: " ++ show computerChoice
+
+        let (_, newGameSeed) = next $ gameSeed gameState
+
+        let currentGameScore = gameScore gameState
+        let newGameScore = Score ((playerScore currentGameScore) + 1) (computerScore currentGameScore)
+
+        put $ GameState newGameScore newGameSeed
 
         mainLoop
