@@ -12,7 +12,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
 import System.Random
 import qualified Text.Read as TR
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 
 data Choice
   = Odds
@@ -26,24 +26,26 @@ data Player
   deriving (Eq, Show)
 
 data Score = Score
-  { playerScore :: Integer
-  , computerScore :: Integer
+  { _playerScore :: Integer
+  , _computerScore :: Integer
   } deriving (Show)
 
+type LastPlayerNumbers = (Maybe Integer, Maybe Integer)
+
 data GameState = GameState
-  { gameScore :: Score
-  , gameRound :: Integer
-  , player3grams :: M.Map (Integer, Integer) Integer
-  , lastPlayerNumbers :: (Maybe Integer, Maybe Integer)
+  { _gameScore :: Score
+  , _gameRound :: Integer
+  , _player3Grams :: M.Map LastPlayerNumbers Integer
+  , _lastPlayerNumbers :: LastPlayerNumbers
   } deriving (Show)
 
 initialGameState :: GameState
 initialGameState =
   GameState
-  { gameScore = Score 0 0
-  , gameRound = 0
-  , player3grams = M.empty
-  , lastPlayerNumbers = (Nothing, Nothing)
+  { _gameScore = Score 0 0
+  , _gameRound = 0
+  , _player3Grams = M.empty
+  , _lastPlayerNumbers = (Nothing, Nothing)
   }
 
 validateChoice :: Monad m => String -> m (Maybe Choice)
@@ -90,12 +92,22 @@ updateGameScore (Score p c) Player = Score (p + 1) c
 updateGameScore (Score p c) CPU = Score p (c + 1)
 
 increaseGameRound :: GameState -> GameState
-increaseGameRound state = state { gameRound = (gameRound state) + 1 }
+increaseGameRound state = state { _gameRound = (_gameRound state) + 1 }
 
 savePlayerNumber :: Integer -> GameState -> GameState
 savePlayerNumber num_new state =
-  let (_, num_old) = lastPlayerNumbers state
-   in state { lastPlayerNumbers = (num_old, Just num_new)}
+  let (_, num_old) = _lastPlayerNumbers state
+      playerNumbers = (num_old, Just num_new)
+      playerGrams = M.insert (_lastPlayerNumbers state) num_new (_player3Grams state)
+   in state { _lastPlayerNumbers = playerNumbers, _player3Grams = playerGrams }
+
+getComputerNumber :: StateT GameState IO Integer
+getComputerNumber = do
+  state <- get
+  let guess = M.lookup (_lastPlayerNumbers state) (_player3Grams state)
+  case guess of
+    Nothing -> lift $ randomRIO (0, 10) -- random
+    Just x -> return x -- guess based on past choices
 
 mainLoop :: StateT GameState IO ()
 mainLoop = do
@@ -105,20 +117,17 @@ mainLoop = do
     when (playerChoice /= Exit) $ do
         modify increaseGameRound
 
+        computerNumber <- getComputerNumber
         playerNumber <- lift $ askPlayerNumber
 
-        computerNumber <- lift $ randomRIO (0, playerNumber+1)
-
         let winner = getWinner (playerNumber + computerNumber) playerChoice
-        let newGameScore = updateGameScore (gameScore gameState) winner
 
+        liftIO $ print $ "PlayerChoice: " ++ show playerChoice
+        liftIO $ print $ "PlayerNumber: " ++ show playerNumber
+        liftIO $ print $ "ComputerNumber: " ++ show computerNumber
+        liftIO $ print $ "Winner: " ++ show winner
+
+        modify $ (\s -> s { _gameScore = updateGameScore (_gameScore gameState) winner })
         modify $ savePlayerNumber playerNumber
 
-        -- put $ GameState newGameScore 0 M.empty (Nothing, Nothing)
-
         mainLoop
-
-        -- liftIO $ print $ "PlayerChoice: " ++ show playerChoice
-        -- liftIO $ print $ "PlayerNumber: " ++ show playerNumber
-        -- liftIO $ print $ "ComputerNumber: " ++ show computerNumber
-        -- liftIO $ print $ "Winner: " ++ show winner
