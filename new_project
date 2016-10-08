@@ -1,0 +1,6 @@
+stack new project_name simple
+cd project_name
+stack build intero
+stack build hdevtools
+stack build hasktags
+stack exec -- hasktags --ignore-close-implementation --ctags .
