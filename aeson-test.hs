@@ -19,7 +19,8 @@ data Test2 = Test2
   } deriving (Show, Generic)
 
 json_data1 = "{\"name\":\"name1\",\"age\":10}"
-json_data = "{\"id\":4,\"people\":[{\"name\":\"name1\",\"age\":10},{\"name\":\"name2\",\"age\":12}]}"
+json_data2 = "{\"id\":4,\"people\":[{\"name\":\"name1\",\"age\":10},{\"name\":\"name2\",\"age\":12}]}"
+json_data3 = "{\"new_key\":5,\"id\":4,\"people\":[{\"name\":\"name1\",\"age\":10},{\"name\":\"name2\",\"age\":12}]}"
 
 instance FromJSON Test1 where
   parseJSON = genericParseJSON defaultOptions { fieldLabelModifier = drop 1 }
@@ -28,7 +29,7 @@ instance FromJSON Test2 where
 
 main :: IO ()
 main = do
-  let x :: Maybe Test2 =  decode json_data
+  let x :: Maybe Test2 =  decode json_data3
   print $ show $ x
   return ()
 
