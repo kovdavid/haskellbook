@@ -14,7 +14,13 @@ cabal-version:       >=1.10
 
 executable ch28
   hs-source-dirs:      src
-  main-is:             Main.hs
+  main-is:             BoxUnboxVector.hs
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
                      , criterion
+                     , containers
+                     , vector
+                     , primitive
+                     , bytestring
+                     , text
+                     , utf8-string
